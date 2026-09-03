@@ -68,15 +68,16 @@ img{max-width:100%}
 </head>
 <body>
 <div class="app">
-<aside><div class="logo">Taylor <span>Vault</span></div><nav>
+<aside><div class="logo">Taylor <span>Vault</span></div><button id="spotifyConnect" class="btn" style="width:100%;margin:0 0 18px;background:#fff;color:#111;font-size:12px;padding:10px 12px">Connect Spotify</button><nav>
 <button class="active" data-tab="home">⌂ <span>Home</span></button>
 <button data-tab="songs">♫ <span>All Songs</span></button>
 <button data-tab="albums">▦ <span>Albums</span></button>
 <button data-tab="liked">♥ <span>Liked Songs</span></button>
-</nav><div class="note">Taylor Swift only.<br><br>Artwork is loaded from Apple's catalog when available.<br><br>▶ opens Spotify.</div></aside>
+</nav><div class="note">Taylor Swift only.<br><br>Artwork is loaded from Apple's catalog when available.<br><br>Spotify playback requires Spotify Premium.</div></aside>
 <main><input id="search" class="search" placeholder="Search Taylor Swift songs or albums…"><div id="content"></div></main>
 </div>
-<footer><div class="now"><div class="mini">TS</div><div><b id="title">Taylor Vault</b><small id="album">Choose a song</small></div></div><div class="controls"><button>↶</button><button class="play">▶</button><button>↷</button></div><div class="status" id="status">Ready • click ▶ to open Spotify</div></footer>
+<footer><div class="now"><div class="mini">TS</div><div><b id="title">Taylor Vault</b><small id="album">Choose a song</small></div></div><div class="controls"><button id="prevBtn" title="Previous">↶</button><button id="playBtn" class="play" title="Play/Pause">▶</button><button id="nextBtn" title="Next">↷</button></div><div class="status" id="status">Connect Spotify to play here</div></footer>
+<script src="https://sdk.scdn.co/spotify-player.js"></script>
 <script>
 const ALBUM_IMAGES = {"Taylor Swift": "https://www.taylorswift.com/wp-content/uploads/sites/2529/2024/12/debut-album.jpg", "Fearless": "https://www.taylorswift.com/wp-content/uploads/sites/2529/2025/07/image-Fearless.png", "Speak Now": "https://www.taylorswift.com/wp-content/uploads/sites/2529/2025/07/img-Speak-Now.png", "Red": "https://www.taylorswift.com/wp-content/uploads/sites/2529/2025/07/imgage-Red.png", "1989": "https://www.taylorswift.com/wp-content/uploads/sites/2529/2025/07/image-1989.png", "reputation": "https://www.taylorswift.com/wp-content/uploads/sites/2529/2025/07/image-Reputation.png", "Lover": "https://www.taylorswift.com/wp-content/uploads/sites/2529/2025/07/img-Lover.png", "folklore": "https://www.taylorswift.com/wp-content/uploads/sites/2529/2025/07/img-Folkore.png", "evermore": "https://www.taylorswift.com/wp-content/uploads/sites/2529/2025/07/img-Evermore.png", "Fearless (Taylor's Version)": "https://www.taylorswift.com/wp-content/uploads/sites/2529/2024/12/img-fearless-compressed.jpg", "Red (Taylor's Version)": "https://www.taylorswift.com/wp-content/uploads/sites/2529/2025/07/imgage-Red-1.png", "Midnights": "https://www.taylorswift.com/wp-content/uploads/sites/2529/2025/07/img-Midnights.png", "Speak Now (Taylor's Version)": "https://www.taylorswift.com/wp-content/uploads/sites/2529/2025/07/img-Speak-Now-TV.png", "1989 (Taylor's Version)": "https://www.taylorswift.com/wp-content/uploads/sites/2529/2025/07/image-1989-TV.png", "The Tortured Poets Department": "https://www.taylorswift.com/wp-content/uploads/sites/2529/2025/07/img-TTPD.png", "The Life of a Showgirl": "https://www.taylorswift.com/wp-content/uploads/sites/2529/2024/12/img-tloas.jpg"};
 const ALBUMS=[
@@ -100,8 +101,27 @@ const ALBUMS=[
 let tab="home",liked=JSON.parse(localStorage.getItem("tv-liked")||"[]");
 const $=id=>document.getElementById(id);
 function allTracks(){return ALBUMS.flatMap(a=>a[3].map(title=>({title,album:a[0],year:a[1],color:a[2]})))}
+const SPOTIFY_CLIENT_ID="152a24463c4b4b8da95419b747362fb7";
+const REDIRECT_URI=window.location.origin+window.location.pathname;
+const SCOPES="streaming user-read-email user-read-private user-read-playback-state user-modify-playback-state";
+let spotifyPlayer=null,spotifyDeviceId=null,accessToken=localStorage.getItem("tv-spotify-token")||"",currentTrack=null,isPlaying=false;
 function spotify(t){return "https://open.spotify.com/search/"+encodeURIComponent("Taylor Swift "+t.title+" "+t.album)}
-function openSpotify(t){$("title").textContent=t.title;$("album").textContent=t.album;$("status").textContent="Opening Spotify…";window.open(spotify(t),"_blank","noopener,noreferrer")}
+function setStatus(s){$("status").textContent=s}
+function base64url(bytes){return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"")}
+async function sha256(v){return crypto.subtle.digest("SHA-256",new TextEncoder().encode(v))}
+function randomString(n=64){const a=new Uint8Array(n);crypto.getRandomValues(a);return base64url(a)}
+async function loginSpotify(){const verifier=randomString();localStorage.setItem("tv-pkce-verifier",verifier);const challenge=base64url(await sha256(verifier));const u=new URL("https://accounts.spotify.com/authorize");u.search=new URLSearchParams({client_id:SPOTIFY_CLIENT_ID,response_type:"code",redirect_uri:REDIRECT_URI,code_challenge_method:"S256",code_challenge:challenge,scope:SCOPES}).toString();location.href=u.toString()}
+async function handleCallback(){const p=new URLSearchParams(location.search),code=p.get("code"),err=p.get("error");if(err){history.replaceState({},"",location.pathname);setStatus("Spotify authorization cancelled");return}if(!code)return;const verifier=localStorage.getItem("tv-pkce-verifier");try{const r=await fetch("https://accounts.spotify.com/api/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({client_id:SPOTIFY_CLIENT_ID,grant_type:"authorization_code",code,redirect_uri:REDIRECT_URI,code_verifier:verifier})});const d=await r.json();if(!r.ok)throw new Error(d.error_description||"Spotify login failed");accessToken=d.access_token;localStorage.setItem("tv-spotify-token",accessToken);if(d.refresh_token)localStorage.setItem("tv-spotify-refresh",d.refresh_token);history.replaceState({},"",location.pathname);initSpotify()}catch(e){console.error(e);setStatus("Spotify login failed — check Redirect URI")}finally{localStorage.removeItem("tv-pkce-verifier")}}
+async function refreshSpotifyToken(){const rt=localStorage.getItem("tv-spotify-refresh");if(!rt)return false;const r=await fetch("https://accounts.spotify.com/api/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:new URLSearchParams({client_id:SPOTIFY_CLIENT_ID,grant_type:"refresh_token",refresh_token:rt})});if(!r.ok)return false;const d=await r.json();accessToken=d.access_token;localStorage.setItem("tv-spotify-token",accessToken);if(d.refresh_token)localStorage.setItem("tv-spotify-refresh",d.refresh_token);return true}
+async function api(url,options={}){let r=await fetch(url,{...options,headers:{...(options.headers||{}),Authorization:"Bearer "+accessToken}});if(r.status===401&&await refreshSpotifyToken())r=await fetch(url,{...options,headers:{...(options.headers||{}),Authorization:"Bearer "+accessToken}});if(!r.ok)throw new Error("Spotify API "+r.status);return r.status===204?null:r.json()}
+async function findTrack(t){const q=encodeURIComponent(`track:${t.title} artist:Taylor Swift`);const d=await api(`https://api.spotify.com/v1/search?q=${q}&type=track&limit=10`);const tracks=d.tracks.items;return tracks.find(x=>x.name.toLowerCase()===t.title.toLowerCase()&&x.artists.some(a=>a.name.toLowerCase()==="taylor swift"))||tracks[0]}
+async function playTrack(t){if(!accessToken){loginSpotify();return}try{if(!spotifyPlayer||!spotifyDeviceId){await initSpotify();if(!spotifyDeviceId){setStatus("Connecting to Spotify…");return}}setStatus("Finding on Spotify…");const tr=await findTrack(t);if(!tr)throw new Error("Track not found");currentTrack=t;$("title").textContent=tr.name;$("album").textContent=tr.album.name;setStatus("Playing on Taylor Vault");await api("https://api.spotify.com/v1/me/player/play?device_id="+encodeURIComponent(spotifyDeviceId),{method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify({uris:[tr.uri]})});isPlaying=true;$("playBtn").textContent="Ⅱ"}catch(e){console.error(e);setStatus("Could not play — Spotify Premium may be required");window.open(spotify(t),"_blank","noopener,noreferrer")}}
+function openSpotify(t){playTrack(t)}
+function initSpotify(){return new Promise((resolve)=>{if(!accessToken){resolve();return}if(spotifyPlayer){resolve();return}if(!window.Spotify){window.onSpotifyWebPlaybackSDKReady=()=>initSpotify().then(resolve);return}spotifyPlayer=new Spotify.Player({name:"Taylor Vault",getOAuthToken:cb=>cb(accessToken),volume:.8});spotifyPlayer.addListener("ready",({device_id})=>{spotifyDeviceId=device_id;setStatus("Spotify connected • ready to play");$("spotifyConnect").textContent="Spotify Connected";resolve()});spotifyPlayer.addListener("not_ready",()=>{spotifyDeviceId=null;setStatus("Spotify player is offline")});spotifyPlayer.addListener("player_state_changed",state=>{if(!state)return;isPlaying=!state.paused;$("playBtn").textContent=isPlaying?"Ⅱ":"▶";if(state.track_window.current_track){$("title").textContent=state.track_window.current_track.name;$("album").textContent=state.track_window.current_track.album.name}});spotifyPlayer.addListener("initialization_error",({message})=>{setStatus("Spotify player error: "+message);resolve()});spotifyPlayer.addListener("authentication_error",async({message})=>{console.error(message);if(await refreshSpotifyToken())location.reload();else{localStorage.removeItem("tv-spotify-token");setStatus("Spotify session expired — reconnect")}resolve()});spotifyPlayer.connect().then(()=>resolve())})}
+$("spotifyConnect").onclick=()=>{if(accessToken){setStatus("Spotify connected • click a song to play")}else loginSpotify()};
+$("playBtn").onclick=async()=>{if(!spotifyPlayer){if(!accessToken)loginSpotify();else await initSpotify();return}await spotifyPlayer.togglePlay()};
+$("prevBtn").onclick=()=>spotifyPlayer&&spotifyPlayer.previousTrack();
+$("nextBtn").onclick=()=>spotifyPlayer&&spotifyPlayer.nextTrack();
 function toggleLike(id){liked=liked.includes(id)?liked.filter(x=>x!==id):[...liked,id];localStorage.setItem("tv-liked",JSON.stringify(liked));render()}
 function card(a,i){
  const img=ALBUM_IMAGES[a[0]]||"";
@@ -132,6 +152,7 @@ function loadArtwork(){}
 function setNav(){document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("active",b.dataset.tab===tab))}
 $("search").oninput=render;
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{tab=b.dataset.tab;setNav();render()});
+handleCallback().then(()=>{if(accessToken)initSpotify()});
 render();
 </script>
 </body>
