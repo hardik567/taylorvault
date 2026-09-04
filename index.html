@@ -363,6 +363,20 @@ footer .controls button,
   }
 }
 
+
+/* Current song indicator */
+.track.playing .song-play,
+.track .song-play.playing,
+.track .song-play.is-playing{
+  opacity:1!important;
+  transform:none!important;
+  background:#fff!important;
+  color:#111!important;
+}
+.track.playing{
+  background:rgba(255,255,255,.045)!important;
+}
+
 </style>
 </head>
 <body>
@@ -469,6 +483,14 @@ function escapeHTML(s){
   return String(s).replace(/[&<>"']/g, c => ({
     "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"
   }[c]));
+}
+
+function normalizeTrackTitle(s){
+  return String(s || "")
+    .toLowerCase()
+    .replace(/[’']/g,"'")
+    .replace(/\s+/g," ")
+    .trim();
 }
 
 function trackKey(t){ return t.title + "||" + t.album; }
@@ -825,6 +847,7 @@ async function playTrack(track, items=queueItems, index=queueIndex){
   queueIndex = Number.isInteger(index) ? index : queueItems.findIndex(x => trackKey(x) === trackKey(track));
   currentTrack = track;
   updatePlayButtons(false);
+  document.querySelectorAll("[data-track-play]").forEach(el=>el.classList.remove("playing","is-playing"));
 
   const ok = await ensurePlayer();
   if(!ok) return;
@@ -887,7 +910,8 @@ function updatePlayButtons(isPlaying){
     const row = el.closest(".track");
     const same = !!currentTrack && row && (
       row.dataset.trackKey === trackKey(currentTrack) ||
-      (currentTrackUri && row.dataset.spotifyUri === currentTrackUri)
+      (currentTrackUri && row.dataset.spotifyUri === currentTrackUri) ||
+      row.dataset.trackTitle === normalizeTrackTitle(currentTrack.title)
     );
 
     el.innerHTML = same && isPlaying
@@ -1023,7 +1047,11 @@ function logoutSpotify(show=true){
 function highlightCurrentTrack(){
   document.querySelectorAll(".track").forEach(row=>{
     row.classList.remove("playing");
-    const same = !!currentTrack && row.dataset.trackKey === trackKey(currentTrack);
+    const same = !!currentTrack && (
+      row.dataset.trackKey === trackKey(currentTrack) ||
+      row.dataset.trackTitle === normalizeTrackTitle(currentTrack.title) ||
+      (currentTrackUri && row.dataset.spotifyUri === currentTrackUri)
+    );
     if(same) row.classList.add("playing");
   });
 }
@@ -1082,7 +1110,7 @@ function list(items){
   return '<div class="tracks">' + items.map((t,i)=>{
     const d=encodeURIComponent(JSON.stringify(t));
     const likedIcon=liked.includes(trackKey(t)) ? "♥" : "♡";
-    return `<div class="track" data-track-key="${escapeHTML(trackKey(t))}">
+    return `<div class="track" data-track-key="${escapeHTML(trackKey(t))}" data-track-title="${escapeHTML(normalizeTrackTitle(t.title))}">
       <span>${i+1}</span>
       <div class="info" data-open="${d}"><b>${escapeHTML(t.title)}</b><small>${escapeHTML(t.album)}</small></div>
       <button data-like="${d}" title="Like">${likedIcon}</button>
