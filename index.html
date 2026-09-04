@@ -126,6 +126,26 @@ img{max-width:100%}
 */
 
 const SPOTIFY_CLIENT_ID = "152a24463c4b4b8da95419b747362fb7";
+
+const SPOTIFY_ALBUM_IDS = {
+  "Taylor Swift":"5eyZZoQEFQWRHkV2xgAeBw",
+  "Fearless":"2dqn5yOQWdyGwOpOIi9O4x",
+  "Speak Now":"5MfAxS5zz8MlfROjGQVXhy",
+  "Red":"1EoDsNmgTLtmwe1BDAVxV5",
+  "1989":"2QJmrSgbdM35R67eoGQo4j",
+  "reputation":"6DEjYFkNZh67HP7R9PSZvv",
+  "Lover":"1NAmidJlEaVgA3MpcPFYGq",
+  "folklore":"2fenSS68JI1h4Fo296JfGr",
+  "evermore":"2Xoteh7uEpea4TohMxjtaq",
+  "Fearless (Taylor's Version)":"4hDok0OAJd57SGIT8xuWJH",
+  "Red (Taylor's Version)":"6kZ42qRrzov54LcAk4onW9",
+  "Speak Now (Taylor's Version)":"5AEDGbliTTfjOB8TSm1sxt",
+  "1989 (Taylor's Version)":"64LU4c1nfjz1t4VnGhagcg",
+  "Midnights":"151w1FgRZfnKZA9FEcg9Z3",
+  "The Tortured Poets Department":"1Mo4aZ8pdj6L1jx8zSwJnt",
+  "The Tortured Poets Department — The Anthology":"5H7ixXZfsNMGbIE5OBSpcb",
+  "The Life of a Showgirl":"4a6NzYL1YHRUgx9e3YZI6I"
+};
 const REDIRECT_URI = window.location.origin + window.location.pathname;
 const SPOTIFY_SCOPES = [
   "streaming",
@@ -460,33 +480,60 @@ async function searchSpotifyTrack(track){
   const token = await getToken();
   if(!token) throw new Error("Connect Spotify first.");
 
-  const query = `track:${track.title} artist:Taylor Swift`;
-  const response = await fetch(
-    "https://api.spotify.com/v1/search?type=track&limit=10&q=" +
-    encodeURIComponent(query),
-    {headers:{Authorization:"Bearer " + token}}
-  );
+  const albumName = track.album;
+  let albumId = SPOTIFY_ALBUM_IDS[albumName];
 
-  const data = await response.json().catch(()=>({}));
-
-  if(!response.ok){
-    if(response.status === 401) throw new Error("Spotify login expired. Connect again.");
-    throw new Error(data.error?.message || "Spotify search failed.");
+  // TTPD in this catalog contains tracks from both the standard album and Anthology.
+  // Check both albums without using Spotify Search.
+  const albumIds = [];
+  if(albumId) albumIds.push(albumId);
+  if(albumName === "The Tortured Poets Department"){
+    albumIds.push(SPOTIFY_ALBUM_IDS["The Tortured Poets Department — The Anthology"]);
   }
 
-  const tracks = data.tracks?.items || [];
-  if(!tracks.length) throw new Error("Track not found on Spotify.");
+  const normalize = s => String(s || "")
+    .toLowerCase()
+    .replace(/[’']/g,"'")
+    .replace(/\s+/g," ")
+    .trim();
 
-  // Prefer exact artist and close title match.
-  const normalized = track.title.toLowerCase().replace(/[’']/g,"'").trim();
-  const exact = tracks.find(x =>
-    x.artists?.some(a => a.name.toLowerCase() === "taylor swift") &&
-    x.name.toLowerCase().replace(/[’']/g,"'").trim() === normalized
-  );
+  const baseTitle = normalize(track.title)
+    .replace(/\s*\(taylor's version\)/g,"")
+    .replace(/\s*\(from the vault\)/g,"")
+    .replace(/\s*\(from the vault\)/g,"")
+    .replace(/\s*\(feat\.[^)]+\)/g,"")
+    .trim();
 
-  return exact || tracks.find(x =>
-    x.artists?.some(a => a.name.toLowerCase() === "taylor swift")
-  ) || tracks[0];
+  for(const id of albumIds){
+    let offset = 0;
+    while(true){
+      const response = await fetch(
+        `https://api.spotify.com/v1/albums/${encodeURIComponent(id)}/tracks?limit=50&offset=${offset}`,
+        {headers:{Authorization:"Bearer " + token}}
+      );
+      const data = await response.json().catch(()=>({}));
+
+      if(!response.ok){
+        if(response.status === 401) throw new Error("Spotify login expired. Connect again.");
+        if(response.status === 403) throw new Error("Spotify API denied this account (403). Make sure this Spotify account is added to your app's Users Management.");
+        if(response.status === 429) throw new Error("Spotify API rate limit reached (429). Please wait a moment and try again.");
+        throw new Error(data.error?.message || `Spotify album lookup failed (${response.status}).`);
+      }
+
+      const tracks = data.items || [];
+      const exact = tracks.find(x => {
+        const n = normalize(x.name);
+        return n === normalize(track.title) ||
+               n.replace(/\s*\(taylor's version\)/g,"").replace(/\s*\(from the vault\)/g,"").trim() === baseTitle;
+      });
+      if(exact) return exact;
+
+      if(!data.next || !tracks.length) break;
+      offset += tracks.length;
+    }
+  }
+
+  throw new Error(`Track not found in the Spotify album catalog: ${track.title}`);
 }
 
 async function playTrack(track, items=queueItems, index=queueIndex){
@@ -502,7 +549,7 @@ async function playTrack(track, items=queueItems, index=queueIndex){
     // Must be triggered by the user's interaction.
     try{ await spotifyPlayer.activateElement(); }catch(e){}
 
-    setStatus("Finding track on Spotify...");
+    setStatus("Loading track from Spotify album...");
     const spotifyTrack = await searchSpotifyTrack(track);
 
     setStatus("Starting " + spotifyTrack.name + "...");
@@ -525,7 +572,7 @@ async function playTrack(track, items=queueItems, index=queueIndex){
     if(!playResponse.ok){
       const data = await playResponse.json().catch(()=>({}));
       if(playResponse.status === 403){
-        throw new Error(data.error?.message || "Spotify account is not eligible for web playback.");
+        throw new Error(data.error?.message || "Spotify playback was denied (403). Check Premium and app user authorization.");
       }
       throw new Error(data.error?.message || "Spotify could not play this track.");
     }
