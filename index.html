@@ -80,6 +80,148 @@ img{max-width:100%}
 @keyframes eq{to{transform:scaleY(.35)}}
 @media(max-width:800px){.progress-wrap{display:none}.volume-wrap{display:none}}
 
+
+/* ---------- Mobile navigation + player fix ---------- */
+@media (max-width:800px){
+  aside{
+    height:64px!important;
+    padding:6px 8px!important;
+    overflow:visible!important;
+  }
+  aside nav{
+    height:52px!important;
+    width:100%!important;
+    display:grid!important;
+    grid-template-columns:repeat(4,1fr)!important;
+    gap:5px!important;
+  }
+  aside nav button{
+    height:52px!important;
+    min-width:0!important;
+    padding:6px 2px!important;
+    display:flex!important;
+    flex-direction:column!important;
+    align-items:center!important;
+    justify-content:center!important;
+    font-size:20px!important;
+    line-height:1!important;
+    margin:0!important;
+  }
+  aside nav button span{
+    display:block!important;
+    font-size:10px!important;
+    margin-top:4px!important;
+    white-space:nowrap!important;
+  }
+
+  /* Keep Spotify connection accessible without covering the bottom menu. */
+  aside .spotify-connect{
+    position:fixed!important;
+    top:10px!important;
+    right:10px!important;
+    width:auto!important;
+    min-width:0!important;
+    margin:0!important;
+    padding:9px 13px!important;
+    z-index:60!important;
+    box-shadow:0 8px 24px rgba(0,0,0,.35)!important;
+  }
+
+  main{
+    margin-left:0!important;
+    padding:16px 12px 150px!important;
+  }
+
+  footer{
+    left:0!important;
+    right:0!important;
+    bottom:64px!important;
+    height:76px!important;
+    padding:8px 10px!important;
+    display:grid!important;
+    grid-template-columns:minmax(0,1fr) auto!important;
+    gap:8px!important;
+    z-index:50!important;
+  }
+  footer .now{
+    min-width:0!important;
+  }
+  footer .mini{
+    width:48px!important;
+    height:48px!important;
+    flex:0 0 48px!important;
+  }
+  footer .now > div:last-child{
+    min-width:0!important;
+  }
+  footer .now b{
+    display:block!important;
+    max-width:150px!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    font-size:12px!important;
+  }
+  footer .now small{
+    display:block!important;
+    max-width:150px!important;
+    white-space:nowrap!important;
+    overflow:hidden!important;
+    text-overflow:ellipsis!important;
+    font-size:10px!important;
+  }
+
+  /* Keep playback controls usable on mobile. */
+  footer .controls{
+    display:flex!important;
+    align-items:center!important;
+    justify-content:flex-end!important;
+    text-align:right!important;
+    white-space:nowrap!important;
+  }
+  footer .controls button{
+    display:inline-grid!important;
+    place-items:center!important;
+    width:34px!important;
+    height:34px!important;
+    margin:0 2px!important;
+    font-size:16px!important;
+  }
+  footer .controls .play{
+    width:40px!important;
+    height:40px!important;
+    font-size:17px!important;
+  }
+  footer .progress-wrap,
+  footer .volume-wrap,
+  footer .status{
+    display:none!important;
+  }
+}
+@media (max-width:380px){
+  aside .spotify-connect{
+    padding:8px 10px!important;
+    font-size:11px!important;
+  }
+  footer .mini{
+    width:42px!important;
+    height:42px!important;
+    flex-basis:42px!important;
+  }
+  footer .now b, footer .now small{
+    max-width:115px!important;
+  }
+  footer .controls button{
+    width:30px!important;
+    height:30px!important;
+    margin:0 1px!important;
+  }
+  footer .controls .play{
+    width:36px!important;
+    height:36px!important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -878,6 +1020,11 @@ document.querySelectorAll("nav button").forEach(b =>
   }
 );
 
+$("spotifyConnect").addEventListener("click", async ()=>{
+  try{
+    if(spotifyPlayer) await spotifyPlayer.activateElement();
+  }catch(e){}
+});
 $("playBtn").onclick=togglePlay;
 $("prevBtn").onclick=previousTrack;
 $("nextBtn").onclick=nextTrack;
