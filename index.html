@@ -265,6 +265,104 @@ footer .controls button,
   }
 }
 
+
+/* ===== Premium Spotify-style mobile playback UI ===== */
+.controls button,
+.song-play,
+#playBtn{
+  -webkit-appearance:none!important;
+  appearance:none!important;
+  font-family:inherit!important;
+  font-size:0!important;
+  line-height:0!important;
+  border:0!important;
+  outline:0!important;
+  cursor:pointer!important;
+}
+.controls button svg,
+.song-play svg,
+#playBtn svg{
+  width:20px!important;
+  height:20px!important;
+  display:block!important;
+  fill:currentColor!important;
+  stroke:none!important;
+}
+#playBtn{
+  width:48px!important;
+  height:48px!important;
+  min-width:48px!important;
+  border-radius:50%!important;
+  display:grid!important;
+  place-items:center!important;
+  background:#fff!important;
+  color:#111!important;
+  box-shadow:0 3px 14px rgba(0,0,0,.28)!important;
+  transition:transform .15s ease,background .15s ease!important;
+}
+#playBtn:hover{transform:scale(1.05)!important}
+.song-play{
+  width:42px!important;
+  height:42px!important;
+  min-width:42px!important;
+  border-radius:50%!important;
+  display:grid!important;
+  place-items:center!important;
+  background:#fff!important;
+  color:#111!important;
+  box-shadow:0 4px 14px rgba(0,0,0,.25)!important;
+  opacity:0!important;
+  transform:translateY(4px)!important;
+  transition:opacity .18s ease,transform .18s ease,background .18s ease!important;
+}
+.song-card:hover .song-play,
+.song-row:hover .song-play,
+.song-play:focus-visible{
+  opacity:1!important;
+  transform:translateY(0)!important;
+}
+.song-play.is-playing,
+.song-play.playing{
+  opacity:1!important;
+  transform:translateY(0)!important;
+  background:#fff!important;
+}
+@media (max-width:800px){
+  .song-play{
+    opacity:1!important;
+    transform:none!important;
+    width:40px!important;
+    height:40px!important;
+    min-width:40px!important;
+    background:#fff!important;
+    color:#111!important;
+    box-shadow:0 3px 12px rgba(0,0,0,.3)!important;
+  }
+  .song-play svg{width:17px!important;height:17px!important}
+  #playBtn{
+    width:44px!important;
+    height:44px!important;
+    min-width:44px!important;
+  }
+  #playBtn svg{width:18px!important;height:18px!important}
+  footer .controls button{
+    background:transparent!important;
+    color:#fff!important;
+    box-shadow:none!important;
+    width:34px!important;
+    height:34px!important;
+    min-width:34px!important;
+    padding:0!important;
+    display:grid!important;
+    place-items:center!important;
+  }
+  footer .controls .play,
+  footer .controls #playBtn{
+    background:#fff!important;
+    color:#111!important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -289,7 +387,7 @@ footer .controls button,
   </div>
   <div class="controls">
     <button id="prevBtn" title="Previous">↶</button>
-    <button id="playBtn" class="play" title="Play/Pause">▶</button>
+    <button id="playBtn" class="play" title="Play/Pause"><svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6c0 .8.9 1.3 1.6.8l10-6.8c.6-.4.6-1.2 0-1.6l-10-6.8C8.9 3.9 8 4.4 8 5.2Z"/></svg></button>
     <button id="nextBtn" title="Next">↷</button>
     <div class="progress-wrap">
       <span id="currentTime">0:00</span>
@@ -774,7 +872,7 @@ async function playTrack(track, items=queueItems, index=queueIndex){
 function updatePlayButtons(isPlaying){
   const btn = document.getElementById("playBtn");
   if(btn){
-    btn.textContent = isPlaying ? "Ⅱ" : "▶";
+    btn.innerHTML = isPlaying ? `<svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>` : `<svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6c0 .8.9 1.3 1.6.8l10-6.8c.6-.4.6-1.2 0-1.6l-10-6.8C8.9 3.9 8 4.4 8 5.2Z"/></svg>`;
     btn.setAttribute("aria-label", isPlaying ? "Pause" : "Play");
     btn.title = isPlaying ? "Pause" : "Play";
     btn.classList.toggle("playing", !!isPlaying);
@@ -785,9 +883,9 @@ function updatePlayButtons(isPlaying){
   document.querySelectorAll("[data-track-play]").forEach(el=>{
     const same = currentTrack &&
       el.getAttribute("data-track-play") === currentTrack.title;
-    el.textContent = same && isPlaying ? "Ⅱ" : "▶";
+    el.innerHTML = same && isPlaying ? `<svg class="icon-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zM13 5h4v14h-4z"/></svg>` : `<svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6c0 .8.9 1.3 1.6.8l10-6.8c.6-.4.6-1.2 0-1.6l-10-6.8C8.9 3.9 8 4.4 8 5.2Z"/></svg>`;
     el.setAttribute("aria-label", same && isPlaying ? "Pause" : "Play");
-    el.title = same && isPlaying ? "Pause" : "Play";
+    el.title = same && isPlaying ? "Pause" : "Play"; el.classList.toggle("is-playing", same && isPlaying);
   });
 }
 
@@ -966,7 +1064,7 @@ function list(items){
       <span>${i+1}</span>
       <div class="info" data-open="${d}"><b>${escapeHTML(t.title)}</b><small>${escapeHTML(t.album)}</small></div>
       <button data-like="${d}" title="Like">${likedIcon}</button>
-      <button class="round" data-open="${d}" title="Play">▶</button>
+      <button class="round" data-open="${d}" title="Play"><svg class="icon-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.2v13.6c0 .8.9 1.3 1.6.8l10-6.8c.6-.4.6-1.2 0-1.6l-10-6.8C8.9 3.9 8 4.4 8 5.2Z"/></svg></button>
     </div>`;
   }).join("") + "</div>";
 }
