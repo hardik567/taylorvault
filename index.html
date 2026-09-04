@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Taylor Vault — For Swiftie Fan</title>
+<title>Taylor Vault — Spotify Player</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#08090d;color:#fff;font-family:Inter,system-ui,-apple-system,Segoe UI,Arial,sans-serif}.app{min-height:100vh;padding-bottom:94px}
 aside{position:fixed;left:0;top:0;bottom:0;width:235px;background:#0d0e13;border-right:1px solid #292c35;padding:25px 18px;z-index:10}.logo{font-size:21px;font-weight:800;margin:0 8px 30px}.logo span{color:#d5a4ff}nav button{display:block;width:100%;padding:13px 12px;border:0;border-radius:10px;background:none;color:#9da1ad;text-align:left;margin:4px 0;cursor:pointer}nav button:hover,nav button.active{background:#1b1d25;color:#fff}.note{position:absolute;bottom:22px;color:#686d79;font-size:11px;line-height:1.6;padding:0 8px}
@@ -222,6 +222,49 @@ img{max-width:100%}
   }
 }
 
+
+/* ---------- Premium playback controls ---------- */
+footer .controls button,
+#playBtn{
+  font-family: Arial, sans-serif!important;
+  font-weight: 700!important;
+  font-variant-emoji: text!important;
+}
+#playBtn{
+  border-radius:50%!important;
+  display:inline-grid!important;
+  place-items:center!important;
+  background:rgba(255,255,255,.95)!important;
+  color:#111!important;
+  border:0!important;
+  box-shadow:0 4px 14px rgba(0,0,0,.25)!important;
+  cursor:pointer!important;
+}
+#playBtn.playing{
+  background:rgba(255,255,255,.95)!important;
+}
+
+
+@media (max-width:800px){
+  footer .controls button{
+    font-family:Arial,sans-serif!important;
+    font-weight:700!important;
+    font-size:15px!important;
+    color:#fff!important;
+    background:transparent!important;
+    border:0!important;
+    box-shadow:none!important;
+  }
+  footer .controls .play,
+  #playBtn{
+    width:42px!important;
+    height:42px!important;
+    min-width:42px!important;
+    border-radius:50%!important;
+    font-size:16px!important;
+  }
+}
+
 </style>
 </head>
 <body>
@@ -233,7 +276,7 @@ img{max-width:100%}
 <button data-tab="songs">♫ <span>All Songs</span></button>
 <button data-tab="albums">▦ <span>Albums</span></button>
 <button data-tab="liked">♥ <span>Liked Songs</span></button>
-</nav><div class="note">Made By Hardik Solanki.<br><br>Artwork is loaded from Apple's catalog when available.<br><br>Spotify playback requires a Premium account.</div></aside>
+</nav><div class="note">Taylor Swift only.<br><br>Artwork is loaded from Apple's catalog when available.<br><br>Spotify playback requires a Premium account.</div></aside>
 <main><input id="search" class="search" placeholder="Search Taylor Swift songs or albums…"><div id="content"></div></main>
 </div>
 <footer>
@@ -725,6 +768,27 @@ async function playTrack(track, items=queueItems, index=queueIndex){
     console.error(e);
     setStatus(e.message || "Could not play the song.");
   }
+}
+
+
+function updatePlayButtons(isPlaying){
+  const btn = document.getElementById("playBtn");
+  if(btn){
+    btn.textContent = isPlaying ? "Ⅱ" : "▶";
+    btn.setAttribute("aria-label", isPlaying ? "Pause" : "Play");
+    btn.title = isPlaying ? "Pause" : "Play";
+    btn.classList.toggle("playing", !!isPlaying);
+  }
+
+  // Song cards: the currently playing song gets a pause icon,
+  // all other song play buttons remain play icons.
+  document.querySelectorAll("[data-track-play]").forEach(el=>{
+    const same = currentTrack &&
+      el.getAttribute("data-track-play") === currentTrack.title;
+    el.textContent = same && isPlaying ? "Ⅱ" : "▶";
+    el.setAttribute("aria-label", same && isPlaying ? "Pause" : "Play");
+    el.title = same && isPlaying ? "Pause" : "Play";
+  });
 }
 
 async function togglePlay(){
